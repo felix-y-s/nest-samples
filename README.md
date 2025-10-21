@@ -87,3 +87,25 @@ $ pnpm --filter 앱이름 run test:e2e
 # 특정 앱 테스트 커버리지 확인
 $ pnpm --filter 앱이름 run test:cov
 ```
+
+## 공통 라이브러리 생성
+```bash
+nest g library shared
+```
+**워크스페이스 설정**
+```json
+{
+  "workspaces": ["sample-app1", "sample-app2", "libs/shared"]
+}
+```
+**TypeScript 경로 매핑: 최상위 tsconfig.json에서 paths를 설정해 모듈 임포트를 간소화**
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "shared/*": ["libs/shared/src/*"]
+    }
+  }
+}
+```
