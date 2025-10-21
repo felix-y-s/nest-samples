@@ -28,6 +28,15 @@
         "tsConfigPath": "apps/nest-sample/tsconfig.app.json"
       }
     },
+    "guard": {
+      "type": "application",
+      "root": "apps/guard",
+      "entryFile": "main",
+      "sourceRoot": "apps/guard/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/guard/tsconfig.app.json"
+      }
+    },
     "shared": {
       "type": "library",
       "root": "libs/shared",

@@ -4,6 +4,7 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { UserNotFoundFilter } from './filters/user-not-found.filter';
 
 async function bootstrap() {
+  console.log('✅ Global exception filter App Start');
   const app = await NestFactory.create(AppModule);
 
   app.useGlobalFilters(

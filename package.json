@@ -20,7 +20,10 @@
     "test:e2e": "jest --config ./apps/nest-sample/test/jest-e2e.json",
     "gef:start:dev": "nest start global-exception-filter --watch",
     "gef:start:prod": "node dist/apps/global-exception-filter/main",
-    "gef:test:e2e": "jest --config ./apps/global-exception-filter/test/jest-e2e.json"
+    "gef:test:e2e": "jest --config ./apps/global-exception-filter/test/jest-e2e.json",
+    "guard:start:dev": "nest start guard --watch",
+    "guard:start:prod": "node dist/apps/guard/main",
+    "guard:test:e2e": "jest --config ./apps/guard/test/jest-e2e.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
