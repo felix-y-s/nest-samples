@@ -45,7 +45,7 @@ export class RolesGuard implements CanActivate {
     // HTTP 요청에서 사용자 정보 가져오기
     const request = context.switchToHttp().getRequest();
     /**
-     * 🚨 주의: 실제 운영환경에서는 role정보를 jwt 토큰에서 가져와야 합니다.
+     * 🚨 주의: 실제 프로덕션에서는 role정보를 jwt 토큰에서 가져와야 합니다.
      */
     const user = request.body.user;
 

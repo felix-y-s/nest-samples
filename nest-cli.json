@@ -19,15 +19,6 @@
         "tsConfigPath": "apps/global-exception-filter/tsconfig.app.json"
       }
     },
-    "nest-sample": {
-      "type": "application",
-      "root": "apps/nest-sample",
-      "entryFile": "main",
-      "sourceRoot": "apps/nest-sample/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/nest-sample/tsconfig.app.json"
-      }
-    },
     "guard": {
       "type": "application",
       "root": "apps/guard",
@@ -35,6 +26,24 @@
       "sourceRoot": "apps/guard/src",
       "compilerOptions": {
         "tsConfigPath": "apps/guard/tsconfig.app.json"
+      }
+    },
+    "jwt": {
+      "type": "application",
+      "root": "apps/jwt",
+      "entryFile": "main",
+      "sourceRoot": "apps/jwt/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/jwt/tsconfig.app.json"
+      }
+    },
+    "nest-sample": {
+      "type": "application",
+      "root": "apps/nest-sample",
+      "entryFile": "main",
+      "sourceRoot": "apps/nest-sample/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/nest-sample/tsconfig.app.json"
       }
     },
     "shared": {
