@@ -46,6 +46,15 @@
         "tsConfigPath": "apps/nest-sample/tsconfig.app.json"
       }
     },
+    "next-and-next-handle": {
+      "type": "application",
+      "root": "apps/next-and-next-handle",
+      "entryFile": "main",
+      "sourceRoot": "apps/next-and-next-handle/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/next-and-next-handle/tsconfig.app.json"
+      }
+    },
     "shared": {
       "type": "library",
       "root": "libs/shared",
