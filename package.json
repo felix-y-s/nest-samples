@@ -26,7 +26,8 @@
     "guard:test:e2e": "jest --config ./apps/guard/test/jest-e2e.json",
     "jwt:start:dev": "nest start jwt --watch",
     "jwt:start:prod": "node dist/apps/jwt/main",
-    "jwt:test:e2e": "jest --config ./apps/jwt/test/jest-e2e.json"
+    "jwt:test:e2e": "jest --config ./apps/jwt/test/jest-e2e.json",
+    "rxjs:start:dev": "nest start rxjs --debug --watch"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

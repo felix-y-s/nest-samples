@@ -55,6 +55,15 @@
         "tsConfigPath": "apps/next-and-next-handle/tsconfig.app.json"
       }
     },
+    "rxjs": {
+      "type": "application",
+      "root": "apps/rxjs",
+      "entryFile": "main",
+      "sourceRoot": "apps/rxjs/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/rxjs/tsconfig.app.json"
+      }
+    },
     "shared": {
       "type": "library",
       "root": "libs/shared",
