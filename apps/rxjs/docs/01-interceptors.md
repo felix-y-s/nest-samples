@@ -546,6 +546,90 @@ intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
 
 ---
 
+### 💡 shareReplay는 왜 캐시 체크 없이는 작동하지 않는가?
+
+**핵심 이해:**
+
+`shareReplay(1)`을 사용해도 **캐시 체크를 주석 처리하면** 2번째 호출부터 비즈니스 로직이 실행되지 않을 것 같지만, **실제로는 매번 실행됩니다**.
+
+```typescript
+// ❌ 캐시 체크 주석 처리 - shareReplay가 있어도 캐싱 안됨!
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  const cacheKey = method + ':' + path;
+
+  // if (this.cache.has(cacheKey)) {
+  //   return this.cache.get(cacheKey)!;
+  // }
+
+  const result = next.handle().pipe(shareReplay(1));  // ⚠️ 매번 새로운 Observable!
+  this.cache.set(cacheKey, result);
+
+  return result;  // 매번 새로운 Observable 반환
+}
+```
+
+**왜 작동하지 않는가?**
+
+호출할 때마다 **새로운 Observable 객체가 생성**되기 때문입니다!
+
+```typescript
+// 첫 번째 요청
+const obs1 = next.handle().pipe(shareReplay(1));  // Observable 객체 A 생성
+cache.set('GET:/weather', obs1);
+return obs1;  // 객체 A 반환 → 비즈니스 로직 실행
+
+// 두 번째 요청
+const obs2 = next.handle().pipe(shareReplay(1));  // Observable 객체 B 생성 (새로운 객체!)
+cache.set('GET:/weather', obs2);  // 객체 B로 덮어씀
+return obs2;  // 객체 B 반환 → 비즈니스 로직 다시 실행!
+```
+
+**shareReplay는 Observable 인스턴스 레벨에서 작동:**
+
+```typescript
+// ✅ 같은 Observable을 여러 번 구독 → shareReplay 효과 발생
+const observable$ = next.handle().pipe(shareReplay(1));
+
+observable$.subscribe(v => console.log('첫 구독:', v));     // 비즈니스 로직 실행
+observable$.subscribe(v => console.log('두번째 구독:', v));  // 캐시된 결과 재사용 ✅
+
+// ❌ 새로운 Observable을 매번 생성 → shareReplay 효과 없음
+const obs1$ = next.handle().pipe(shareReplay(1));
+obs1$.subscribe();  // 비즈니스 로직 실행
+
+const obs2$ = next.handle().pipe(shareReplay(1));  // 다른 Observable 객체!
+obs2$.subscribe();  // 비즈니스 로직 다시 실행 ❌
+```
+
+**올바른 구현:**
+
+```typescript
+// ✅ 캐시 체크 필수 - 같은 Observable 객체 재사용
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  const cacheKey = method + ':' + path;
+
+  // 캐시된 Observable 객체 반환 (필수!)
+  if (this.cache.has(cacheKey)) {
+    this.logger.debug(`💾 캐시 사용`);
+    return this.cache.get(cacheKey)!;  // 같은 Observable 객체 반환
+  }
+
+  // 새로운 Observable 생성 및 저장
+  const result = next.handle().pipe(shareReplay(1));
+  this.cache.set(cacheKey, result);
+
+  return result;
+}
+```
+
+**정리:**
+- `shareReplay`는 **한 Observable 인스턴스** 내에서 여러 구독자가 결과를 공유
+- 매번 새로운 Observable을 생성하면 `shareReplay`는 무의미함
+- **캐시 체크는 필수** - 같은 Observable 객체를 재사용해야 함
+- 호출마다 새 Observable 객체가 생성되므로 캐시 체크 없이는 캐싱 효과가 전혀 없음
+
+---
+
 #### 방법 3: 하이브리드 방식 (고급 🚀)
 ```typescript
 // 단기 캐시 (shareReplay) + 장기 캐시 (데이터 저장) 조합
