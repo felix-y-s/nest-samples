@@ -59,7 +59,7 @@ interface NestInterceptor {
 ### RxJS의 장점
 
 1. **선언적 체이닝**: 여러 작업을 파이프라인으로 연결
-2. **강력한 에러 처리**: catchError, retry, retryWhen
+2. **강력한 에러 처리**: catchError, retry
 3. **시간 제어**: timeout, delay, debounce
 4. **데이터 변환**: map, tap, switchMap
 5. **조합 가능**: 여러 인터셉터를 쉽게 조합
@@ -468,6 +468,84 @@ intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
 
 ---
 
+### ⚠️ 중요: Observable 캐싱 주의사항
+
+**Cold Observable의 함정:**
+
+RxJS Observable은 기본적으로 Cold Observable입니다. 이는 각 구독(`subscribe()`)마다 새로운 실행 컨텍스트가 생성된다는 의미입니다.
+
+```typescript
+// ❌ 잘못된 방법 - 캐싱이 전혀 작동하지 않음!
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  const cacheKey = this.getCacheKey(context);
+
+  if (this.cache.has(cacheKey)) {
+    this.logger.debug('캐시 사용');
+    return this.cache.get(cacheKey)!;  // ⚠️ 구독 시마다 비즈니스 로직 재실행!
+  }
+
+  const result = next.handle();  // Cold Observable
+  this.cache.set(cacheKey, result);
+
+  return result;
+}
+```
+
+**문제점:**
+- `next.handle()`은 Cold Observable을 반환
+- Observable 참조만 저장했을 뿐, 실제 데이터는 저장되지 않음
+- 캐시된 Observable을 구독할 때마다 `next.handle()`이 재실행됨
+- 결과: 비즈니스 로직이 매번 실행되고, 캐시 값으로 대체되며, 비즈니스 결과값은 버려지는 구조
+
+**해결 방법:**
+
+```typescript
+// ✅ 방법 1: shareReplay 사용 (Hot Observable로 변환)
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  const cacheKey = this.getCacheKey(context);
+
+  if (this.cache.has(cacheKey)) {
+    return this.cache.get(cacheKey)!;
+  }
+
+  const result = next.handle().pipe(
+    shareReplay(1)  // ✅ 첫 구독 결과를 모든 구독자에게 공유
+  );
+  this.cache.set(cacheKey, result);
+
+  return result;
+}
+
+// ✅ 방법 2: 데이터 직접 저장 (권장)
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  const cacheKey = this.getCacheKey(context);
+
+  // 캐시 히트
+  if (this.cache.has(cacheKey)) {
+    const cached = this.cache.get(cacheKey)!;
+    return of(cached.data);  // ✅ 실제 데이터 반환
+  }
+
+  // 캐시 미스
+  return next.handle().pipe(
+    tap(data => {
+      this.cache.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+        ttl: 60000
+      });
+    })
+  );
+}
+```
+
+**핵심 차이:**
+- **Cold Observable**: 각 구독마다 독립적인 실행 (매번 API 호출)
+- **Hot Observable** (`shareReplay`): 한 번 실행하고 결과를 모든 구독자에게 공유
+- **데이터 저장**: Observable 대신 실제 데이터를 저장하여 재실행 방지
+
+---
+
 #### 방법 3: 하이브리드 방식 (고급 🚀)
 ```typescript
 // 단기 캐시 (shareReplay) + 장기 캐시 (데이터 저장) 조합
@@ -710,7 +788,6 @@ return next.handle().pipe(
 | `catchError` | 에러 처리 | `catchError(err => throwError(() => err))` |
 | `timeout` | 타임아웃 | `timeout(5000)` |
 | `retry` | 재시도 | `retry({ count: 3, delay: 1000 })` |
-| `retryWhen` | 조건부 재시도 | `retryWhen(errors => ...)` |
 | `shareReplay` | 결과 캐싱 | `shareReplay(1)` |
 
 ### 다음 단계
