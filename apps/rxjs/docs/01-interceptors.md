@@ -525,21 +525,93 @@ intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
 ****
 ### 과제 5: 종합 프로젝트 ⭐⭐⭐
 
-**시나리오:** 외부 API를 호출하는 서비스
+**시나리오:** 외부 날씨 API를 호출하는 서비스
+
+당신은 불안정한 외부 날씨 API를 사용하는 서비스를 개발합니다.
+5개의 인터셉터를 조합하여 안정적이고 빠른 서비스를 만드세요.
+
+---
+
+#### 📋 상세 시나리오
+
+**배경:**
+- 외부 날씨 API: `GET /api/weather/:city`
+- API 특징:
+  - 가끔 느림 (5-15초 소요)
+  - 간헐적 500 에러 (10% 확률)
+  - 동일 도시 데이터는 1시간마다 갱신
+
+**문제 상황:**
+```
+사용자 요청: GET /weather/seoul
+
+❌ 문제 1: API 응답이 15초 걸림 → 사용자 이탈
+❌ 문제 2: 500 에러 발생 → 서비스 실패
+❌ 문제 3: 같은 요청 반복 → 불필요한 API 호출
+❌ 문제 4: 응답 형식 불일치 → 프론트엔드 혼란
+❌ 문제 5: 에러 추적 불가 → 디버깅 어려움
+```
+
+**해결 방법 (인터셉터 조합):**
+```typescript
+@Controller('weather')
+@UseInterceptors(
+  LoggingInterceptor,        // 1. 모든 요청/응답 로깅
+  TimeoutInterceptor,         // 2. 10초 타임아웃
+  SmartRetryInterceptor,      // 3. 500 에러 시 3회 재시도
+  CacheInterceptor,           // 4. 60초 캐싱
+  StandardResponseInterceptor // 5. 표준 형식 변환
+)
+export class WeatherController {
+  @Get(':city')
+  async getWeather(@Param('city') city: string) {
+    // 외부 API 호출
+    return this.weatherService.fetchWeather(city);
+  }
+}
+```
+
+**실행 흐름:**
+```
+1. [Logging] 📥 요청 로그: GET /weather/seoul
+2. [Cache] 캐시 확인 → MISS (첫 요청)
+3. [Timeout] 타이머 시작 (10초)
+4. [Retry] 외부 API 호출
+   → 500 에러 → 1초 대기 → 재시도 (1/3)
+   → 500 에러 → 2초 대기 → 재시도 (2/3)
+   → 200 성공 → 데이터 수신
+5. [Cache] 📦 캐시 저장 (60초 TTL)
+6. [Standard] 표준 형식 변환
+7. [Logging] ✅ 응답 로그: 200 OK (3.5초)
+
+다음 요청 (30초 후):
+1. [Cache] 캐시 확인 → HIT ⚡
+2. [Standard] 표준 형식 변환
+3. [Logging] ✅ 응답 로그: 200 OK (5ms)
+```
+
+---
 
 **요구사항:**
-1. 로깅 (모든 요청/응답)
-2. 타임아웃 (10초)
-3. 재시도 (3번, 지수 백오프)
-4. 응답 변환 (표준 포맷)
-5. 캐싱 (60초 TTL)
+1. **로깅**: 모든 요청/응답 기록 (시간, 상태, 에러)
+2. **타임아웃**: 10초 초과 시 `RequestTimeoutException`
+3. **재시도**: 500번대 에러만 3회 재시도 (1초, 2초, 4초 간격)
+4. **캐싱**: GET 요청만 60초 캐싱, Cache-Control 헤더
+5. **표준 응답**: 모든 응답을 `{ success, data, timestamp, meta }` 형식
+
+**성공 기준:**
+- ✅ API 응답 시간: 평균 100ms 이하 (캐시 히트 시)
+- ✅ 에러 복구율: 95% 이상 (재시도로 500 에러 복구)
+- ✅ 타임아웃 방지: 10초 이내 응답 보장
+- ✅ 일관된 응답: 모든 API가 동일한 형식
 
 **체크리스트:**
 - [ ] 5개 인터셉터 모두 구현
-- [ ] 올바른 순서로 적용
+- [ ] 올바른 순서로 적용 (순서 중요!)
 - [ ] 각 기능별 단위 테스트
-- [ ] 통합 시나리오 테스트
-- [ ] 성능 측정 및 개선
+- [ ] 통합 시나리오 테스트 (전체 흐름)
+- [ ] 성능 측정 (캐시 히트율, 평균 응답 시간)
+- [ ] 에러 복구 검증 (500 에러 → 재시도 → 성공)
 
 ---
 
