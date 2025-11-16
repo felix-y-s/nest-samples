@@ -213,20 +213,25 @@ import { retryWhen, mergeMap, throwError, timer } from 'rxjs';
 export class SmartRetryInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
-      retryWhen((errors) =>
-        errors.pipe(
-          mergeMap((error, index) => {
-            // 500번대 에러만 재시도
-            if (error.status >= 500 && index < 3) {
-              const delayTime = Math.pow(2, index) * 1000; // 지수 백오프
-              console.log(`재시도 ${index + 1}번째 (${delayTime}ms 대기)`);
-              return timer(delayTime);
-            }
-            // 재시도 불가능한 에러
-            return throwError(() => error);
-          })
-        )
-      )
+      retry({
+        count: 3, // 최대 3번 재시도
+        delay: (error, retryCount) => {
+          // 500번대 에러만 재시도
+          if (error.status >= 500) {
+            const delayTime = Math.pow(2, retryCount - 1) * 1000; // 지수 백오프: 1초, 2초, 4초
+            this.logger.warn(
+              `🔄 재시도 ${retryCount}번째 (${delayTime}ms 대기) | Status: ${error.status} | ${error.message}`
+            );
+            return timer(delayTime);
+          }
+
+          // 400번대 에러는 재시도하지 않음 (즉시 에러 throw)
+          this.logger.error(
+            `⛔ 재시도 불가능 | Status: ${error.status} | ${error.message}`
+          );
+          throw error;
+        },
+      })
     );
   }
 }
@@ -397,20 +402,127 @@ Response ← Transform ← Retry ← Timeout ← Logging
 - Cache-Control 헤더 추가
 - 캐시 히트/미스 로깅
 
-**힌트:**
+**구현 방법 (3가지):**
+
+#### 방법 1: 데이터 저장 방식 (실무 추천 ✅)
+```typescript
+// TTL 기반 캐싱에 적합
+interface Cache<T> {
+  data: T;  // 실제 데이터 저장
+  timestamp: number;
+  ttl: number;
+}
+
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  // 캐시 히트
+  if (this.cache.has(key) && !this.isExpired(key)) {
+    return of(this.cache.get(key).data);  // 저장된 데이터 반환
+  }
+
+  // 캐시 미스
+  return next.handle().pipe(
+    tap(data => {
+      this.cache.set(key, {
+        data,
+        timestamp: Date.now(),
+        ttl: 60000,
+      });
+    })
+  );
+}
+```
+
+**장점:**
+- ✅ TTL 완전 제어 가능
+- ✅ 메모리 효율적
+- ✅ 디버깅 용이 (Map에 직접 접근 가능)
+- ✅ Redis/Memcached 통합 쉬움
+
+---
+
+#### 방법 2: shareReplay 방식 (RxJS 학습용 📚)
 ```typescript
 import { shareReplay } from 'rxjs/operators';
 
-// shareReplay(1)을 사용하여 결과를 캐시하고 재사용
+// 동시 요청 중복 제거에 적합
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  if (!this.cache.has(key)) {
+    const request$ = next.handle().pipe(
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+    this.cache.set(key, request$);
+  }
+  return this.cache.get(key);
+}
 ```
 
-**체크리스트:**
-- [ ] `CacheInterceptor` 구현
-- [ ] Map으로 캐시 저장소 구현
-- [ ] TTL 타이머 설정
-- [ ] 캐시 무효화 로직
-- [ ] 성능 개선 확인
+**장점:**
+- ✅ RxJS 멀티캐스팅 학습
+- ✅ 동시 요청 중복 제거
+- ✅ 코드 간결함
 
+**단점:**
+- ❌ TTL 제어 어려움
+- ❌ 영구 캐싱 위험 (첫 응답 계속 재생)
+- ❌ 메모리 누수 가능성
+
+---
+
+#### 방법 3: 하이브리드 방식 (고급 🚀)
+```typescript
+// 단기 캐시 (shareReplay) + 장기 캐시 (데이터 저장) 조합
+intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  // 단기 캐시: 동시 요청 중복 제거
+  if (this.pendingRequests.has(key)) {
+    return this.pendingRequests.get(key);
+  }
+
+  // 장기 캐시: TTL 기반
+  if (this.cache.has(key) && !this.isExpired(key)) {
+    return of(this.cache.get(key).data);
+  }
+
+  // 새 요청
+  const request$ = next.handle().pipe(
+    shareReplay({ bufferSize: 1, refCount: true }),
+    tap(data => {
+      this.cache.set(key, { data, timestamp: Date.now(), ttl: 60000 });
+    }),
+    finalize(() => {
+      this.pendingRequests.delete(key);  // 완료 후 단기 캐시 삭제
+    })
+  );
+
+  this.pendingRequests.set(key, request$);
+  return request$;
+}
+```
+
+**장점:**
+- ✅ 동시 요청 최적화 (shareReplay)
+- ✅ TTL 완전 제어 (데이터 저장)
+- ✅ 최고의 성능
+
+**단점:**
+- ❌ 복잡도 증가
+
+---
+
+**추천 학습 순서:**
+1. **방법 2 (shareReplay)** → RxJS 개념 이해
+2. **문제점 발견** → TTL 제어 불가, 영구 캐싱 문제
+3. **방법 1 (데이터 저장)** → 실무 적합 방식 학습
+4. **방법 3 (하이브리드)** → 고급 최적화 (선택)
+
+**체크리스트:**
+- [ ] `CacheInterceptor` 구현 (방법 1 또는 2 선택)
+- [ ] Map으로 캐시 저장소 구현
+- [ ] TTL 만료 체크 로직
+- [ ] 캐시 무효화 로직
+- [ ] Cache-Control, X-Cache 헤더 설정
+- [ ] 캐시 히트/미스 로깅
+- [ ] 성능 개선 확인
+****
 ### 과제 5: 종합 프로젝트 ⭐⭐⭐
 
 **시나리오:** 외부 API를 호출하는 서비스
