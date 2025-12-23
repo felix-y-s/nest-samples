@@ -64,6 +64,15 @@
         "tsConfigPath": "apps/rxjs/tsconfig.app.json"
       }
     },
+    "rxjs-websocket": {
+      "type": "application",
+      "root": "apps/rxjs-websocket",
+      "entryFile": "main",
+      "sourceRoot": "apps/rxjs-websocket/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/rxjs-websocket/tsconfig.app.json"
+      }
+    },
     "shared": {
       "type": "library",
       "root": "libs/shared",

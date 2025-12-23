@@ -22,11 +22,7 @@
     "gef:start:prod": "node dist/apps/global-exception-filter/main",
     "gef:test:e2e": "jest --config ./apps/global-exception-filter/test/jest-e2e.json",
     "guard:start:dev": "nest start guard --watch",
-    "guard:start:prod": "node dist/apps/guard/main",
-    "guard:test:e2e": "jest --config ./apps/guard/test/jest-e2e.json",
     "jwt:start:dev": "nest start jwt --watch",
-    "jwt:start:prod": "node dist/apps/jwt/main",
-    "jwt:test:e2e": "jest --config ./apps/jwt/test/jest-e2e.json",
     "rxjs:start:dev": "nest start rxjs --debug --watch"
   },
   "dependencies": {
