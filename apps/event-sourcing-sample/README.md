@@ -35,6 +35,9 @@ NestJS CQRS 패턴을 활용한 **이벤트 소싱** 구현 예제입니다.
 ### 🚌 [COMMAND_QUERY_BUS.md](./COMMAND_QUERY_BUS.md)
 **Command Bus & Query Bus 가이드** - CQRS 패턴의 핵심인 Command Bus와 Query Bus의 동작 원리, 차이점, 사용법을 상세히 설명합니다.
 
+### 🎯 [BUSINESS_LOGIC.md](./BUSINESS_LOGIC.md)
+**비즈니스 로직 배치 가이드** - Command, Aggregate, Event Handler 각각의 역할과 비즈니스 로직을 어디에 배치해야 하는지 명확하게 설명합니다.
+
 ## 🎯 구현 시나리오
 
 주문/결제 시스템을 통해 다음 상황들을 학습합니다:
@@ -294,7 +297,7 @@ curl http://localhost:3000/orders/{orderId}/history
 - **검증**: 비즈니스 규칙 위반 시 예외 발생
 - **이벤트 발행**: 성공 시 이벤트 발행
 
-### 3. Aggregate
+### 3. Aggregate (집계)
 - **일관성 경계**: 비즈니스 규칙 적용
 - **이벤트 소싱**: apply() 메서드로 이벤트 적용
 - **상태 복원**: 이벤트 재생으로 현재 상태 복원
@@ -303,6 +306,9 @@ curl http://localhost:3000/orders/{orderId}/history
 - **이벤트 저장**: 시간순으로 모든 이벤트 보관
 - **상태 복원**: 저장된 이벤트로 Aggregate 상태 재구성
 - **감사 추적**: 완벽한 이력 조회 가능
+
+💡 **[도메인 로직 vs 애플리케이션 로직 명확화](./DOMAIN_VS_APPLICATION_LOGIC.md)**
+Command, Aggregate, Event Handler의 역할 차이와 각각의 로직 유형을 명확하게 구분합니다.
 
 ## 🔍 이벤트 소싱의 장점
 

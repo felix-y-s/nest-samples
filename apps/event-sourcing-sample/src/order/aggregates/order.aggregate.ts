@@ -66,6 +66,8 @@ export class OrderAggregate extends AggregateRoot {
       throw new Error('할인율은 0-100 사이여야 합니다');
     }
 
+    // 여기서 실제 비지니스 로직을 실행하는거야? 예를들어 주문을 생성해서 디비에 저장하는 등의 일을 진행해?
+
     // 이벤트 발행 - 상태 변경은 이벤트 핸들러에서 처리
     this.apply(
       new OrderCreatedEvent(
