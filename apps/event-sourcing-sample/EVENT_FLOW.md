@@ -15,56 +15,78 @@
 
 ## 전체 아키텍처 개요
 
-```
+```ts
 ┌─────────────┐
-│   사용자     │
+│   사용자    │
 └──────┬──────┘
        │ HTTP Request
        ▼
 ┌─────────────────────────────────────────────────────────┐
-│                    Controller                            │
-│  (order.controller.ts)                                   │
-│  - HTTP 요청 수신                                          │
-│  - DTO 검증                                               │
-│  - Command/Query 버스로 전달                               │
+│                    Controller                           │
+│  (order.controller.ts)                                  │
+│  - HTTP 요청 수신                                       │
+│  - DTO 검증                                             │
+│  - Command/Query 버스로 전달                            │
 └────────────┬────────────────────────────────────────────┘
              │
     ┌────────┴────────┐
     │                 │
-    ▼                 ▼
+    ▼                 ▼  `⭐️ OrderCreatedEvent 발생 시 전달 순서 1️⃣ -> 2️⃣ -> 3️⃣ -> 4️⃣ ⭐️`
 ┌─────────┐     ┌──────────┐
-│ Command │     │  Query   │
-│   Bus   │     │   Bus    │
+│ Command │     │  Query   │  - await this.commandBus.execute(new CreateOrderCommand({}));
+│   Bus   │     │   Bus    │  - await this.queryBus.execute(new GetOrderStatusQuery());
 └────┬────┘     └────┬─────┘
      │               │
      ▼               ▼
-┌─────────────┐ ┌────────────────┐
-│  Command    │ │ Query Handler  │
-│  Handler    │ │ - 상태 조회      │
-└──────┬──────┘ │ - 이벤트 히스토리  │
-       │        └────────┬───────┘
+┌─────────────┐ - @CommandHandler(CreateOrderCommand)
+│  Command    │ - order = eventPublisher.mergeObjectContext(new OrderAggregate())
+│  Handler    │ - order.createOrder(...) // 비즈니스 로직 실행
+└──────┬──────┘ - order.commit() // 3️⃣ EventBus로 이벤트 전파
+       │
+       │        ┌───────────────────┐
+       │        │ Query Handler     │ - @QueryHandler(GetOrderStatusQuery)
+       │        │ - 상태 조회       │ - const order = await eventStore.getOrderById(id)
+       │        │ - 이벤트 히스토리 │ - return { status: order.status }
+       │        └────────┬──────────┘
        ▼                 │
-┌──────────────┐         │
-│  Aggregate   │         │
-│  - 비즈니스    │         │
-│    로직 실행   │         │
-│  - 이벤트     │         │
-│    발행       │         │
-└──────┬───────┘         │
-       │                 │
+┌──────────────┐         │    - class OrderAggregate extends AggregateRoot {
+│  Aggregate   │         │        createOrder(...) {
+│  - 비즈니스  │         │          // ✅ 여기에 도메인 규칙 검증 로직 추가
+│    로직 실행 │         │          this.apply(new OrderCreatedEvent(...)) // 1️⃣ this.apply로 이벤트 발행
+│  - 이벤트    │         │        }
+│    발행      │         │        // 2️⃣ 이벤트 적용 → 상태 변경
+└──────┬───────┘         │        onOrderCreatedEvent(event) {
+       │                 │          this.status = 'CREATED'
+       │                 │        }
+       │                 │      }
        ▼                 │
-┌──────────────┐         │
-│  Event Bus   │         │
-└──────┬───────┘         │
-       │                 │
-       ▼                 ▼
-┌─────────────────────────────┐
-│      Event Store            │
-│  - 이벤트 저장                 │
-│  - 상태 복원                  │
-│  - 히스토리 조회               │
-└─────────────────────────────┘
-```
+┌──────────────────────────────────────┐
+│          Event Bus (Pub/Sub)         │
+│      - 모든 구독자에게 동시 전파     │
+└────┬─────────────────────────────┬───┘
+     │                             │
+     │                             │
+     ▼                             ▼
+┌─────────────────┐    ┌──────────────────────────┐
+│  Event Store    │    │   Event Handlers         │
+│  - 이벤트 저장  │    │  - ProductStockHandler   │
+│  - 상태 복원    │    │  - EmailNotification     │
+│  - 히스토리 조회│    │  - PointReward           │
+└─────────────────┘    │  - 외부 시스템 연동      │
+                       └──────────────────────────┘
+- `Event Store`: this.eventBus.subscribe((event: IEvent) => {})
+- `Event Handlers`: @EventsHandler(OrderCreatedEvent) // 4️⃣ OrderAggregate에서 발행한 이벤트가 여기로 옴
+``` 
+**이벤트 소싱의 핵심 패턴**
+1. 상태 복원 (Query):
+ - EventStore.getOrderById() → 이벤트 배열 조회
+ - 각 이벤트를 순차적으로 재생 (onOrderCreatedEvent, onPaymentSucceededEvent...)
+ - 최종 상태 반환
+2. 상태 변경 (Command):
+ - Aggregate.createOrder() → 비즈니스 로직 검증
+ - this.apply() → 이벤트 발행
+ - onOrderCreatedEvent() 자동 호출 → 상태 변경
+ - EventBus로 이벤트 전파
 
 > **💡 Command Bus & Query Bus 상세 설명**
 > **📖 [COMMAND_QUERY_BUS.md](./COMMAND_QUERY_BUS.md)** - CQRS 패턴의 핵심인 Command Bus와 Query Bus의 동작 원리, 차이점, 사용법을 상세히 설명합니다.
@@ -111,18 +133,20 @@ OrderAggregate
   │ [이벤트 발행]
   │ apply(OrderCreatedEvent)
   ▼
-EventBus
+EventBus (Pub/Sub)
   │
-  │ 이벤트 전파
-  ▼
-EventStore
+  ├─→ EventStore
+  │   │ [이벤트 저장]
+  │   │ orderId -> [OrderCreatedEvent]
+  │   │
+  │   │ 콘솔 출력:
+  │   │ [이벤트 저장] OrderCreatedEvent:
+  │   │   { orderId: 'ORDER-xxx', totalEvents: 1 }
   │
-  │ [이벤트 저장]
-  │ orderId -> [OrderCreatedEvent]
-  │
-  │ 콘솔 출력:
-  │ [이벤트 저장] OrderCreatedEvent:
-  │   { orderId: 'ORDER-xxx', totalEvents: 1 }
+  └─→ Event Handlers (동시 수신)
+      - ProductStockHandler (예약 처리)
+      - EmailNotificationHandler (주문 확인 메일)
+      - AnalyticsHandler (주문 통계)
   ▼
 Aggregate 상태 변경
   │
@@ -220,26 +244,31 @@ OrderAggregate.processPayment()
   │ apply(OrderCompletedEvent)
   │   → status = COMPLETED
   ▼
-EventBus (3개의 이벤트 전파)
+EventBus (Pub/Sub - 3개의 이벤트 동시 전파)
   │
-  ├─→ PaymentAttemptedEvent
-  ├─→ PaymentSucceededEvent
-  └─→ OrderCompletedEvent
-  ▼
-EventStore
+  │ 3개 이벤트: PaymentAttemptedEvent
+  │            PaymentSucceededEvent
+  │            OrderCompletedEvent
   │
-  │ [이벤트 저장 - 3회]
-  │ orderId -> [
-  │   OrderCreatedEvent,
-  │   PaymentAttemptedEvent,    ← 추가
-  │   PaymentSucceededEvent,    ← 추가
-  │   OrderCompletedEvent       ← 추가
-  │ ]
+  ├─→ EventStore (✅ 중앙 집중식)
+  │   │ [이벤트 저장 - 3회]
+  │   │ orderId -> [
+  │   │   OrderCreatedEvent,
+  │   │   PaymentAttemptedEvent,    ← 추가
+  │   │   PaymentSucceededEvent,    ← 추가
+  │   │   OrderCompletedEvent       ← 추가
+  │   │ ]
+  │   │
+  │   │ 콘솔 출력:
+  │   │ [이벤트 저장] PaymentAttemptedEvent: totalEvents: 2
+  │   │ [이벤트 저장] PaymentSucceededEvent: totalEvents: 3
+  │   │ [이벤트 저장] OrderCompletedEvent: totalEvents: 4
   │
-  │ 콘솔 출력:
-  │ [이벤트 저장] PaymentAttemptedEvent: totalEvents: 2
-  │ [이벤트 저장] PaymentSucceededEvent: totalEvents: 3
-  │ [이벤트 저장] OrderCompletedEvent: totalEvents: 4
+  └─→ Event Handlers (동시 수신)
+      - ProductStockHandler (재고 감소 - OrderCompleted 시)
+      - EmailNotificationHandler (결제 완료 알림)
+      - PointRewardHandler (포인트 적립)
+      - InvoiceHandler (영수증 발행)
   ▼
 응답 반환
   │
@@ -346,14 +375,20 @@ OrderAggregate.processPayment(300000)  ← 부족한 잔액
   │
   │ ⛔ return (더 이상 진행하지 않음)
   ▼
-EventStore
+EventBus (Pub/Sub)
   │
-  │ [저장된 이벤트]
-  │ orderId -> [
-  │   OrderCreatedEvent,
-  │   PaymentAttemptedEvent,
-  │   PaymentFailedEvent      ← 실패 이벤트
-  │ ]
+  ├─→ EventStore
+  │   │ [저장된 이벤트]
+  │   │ orderId -> [
+  │   │   OrderCreatedEvent,
+  │   │   PaymentAttemptedEvent,
+  │   │   PaymentFailedEvent      ← 실패 이벤트
+  │   │ ]
+  │
+  └─→ Event Handlers (동시 수신)
+      - OrderFailureHandler (실패 처리 로직)
+      - EmailNotificationHandler (결제 실패 알림)
+      - RetryScheduler (재시도 스케줄링)
 ```
 
 ### 이벤트 스토어 상태
@@ -371,7 +406,7 @@ EventStore
 │                                                 │
 │   3. PaymentFailedEvent ⚠️                      │
 │      - reason: INSUFFICIENT_BALANCE             │
-│      - errorMessage: "잔액이 부족합니다..."          │
+│      - errorMessage: "잔액이 부족합니다..."     │
 │      - additionalInfo: {                        │
 │          currentBalance: 300000                 │
 │        }                                        │
@@ -416,14 +451,21 @@ OrderAggregate.processPayment(1000000)  ← 충분한 잔액
   │
   │ ⛔ return (잔액 검증까지 가지 않음)
   ▼
-EventStore
+EventBus (Pub/Sub)
   │
-  │ [저장된 이벤트]
-  │ orderId -> [
-  │   OrderCreatedEvent,
-  │   PaymentAttemptedEvent,
-  │   PaymentFailedEvent      ← 할인율 문제
-  │ ]
+  ├─→ EventStore
+  │   │ [저장된 이벤트]
+  │   │ orderId -> [
+  │   │   OrderCreatedEvent,
+  │   │   PaymentAttemptedEvent,
+  │   │   PaymentFailedEvent      ← 할인율 문제
+  │   │ ]
+  │
+  └─→ Event Handlers (동시 수신)
+      - OrderFailureHandler (실패 처리 로직)
+      - EmailNotificationHandler (결제 실패 알림)
+      - AuditLogHandler (부정 할인율 감사 로그)
+      - FraudDetectionHandler (부정 거래 탐지)
 ```
 
 ### 이벤트 스토어 상태
@@ -443,7 +485,7 @@ EventStore
 │                                                 │
 │   3. PaymentFailedEvent ⚠️                      │
 │      - reason: INVALID_DISCOUNT_RATE            │
-│      - errorMessage: "할인율이 최대 허용치..."       │
+│      - errorMessage: "할인율이 최대 허용치..."  │
 │      - additionalInfo: {                        │
 │          requestedDiscountRate: 60,             │
 │          maxAllowedDiscountRate: 50             │

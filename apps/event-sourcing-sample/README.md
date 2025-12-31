@@ -292,6 +292,9 @@ curl http://localhost:3000/orders/{orderId}/history
 - **불변성**: 한 번 발생한 이벤트는 수정 불가
 - **완전한 정보**: 상태 재구성에 필요한 모든 데이터 포함
 
+📡 **[이벤트 전파 및 Pub/Sub 패턴](./EVENT_PROPAGATION.md)**
+EventBus를 통한 이벤트 전파와 Event Store, Event Handler가 동시에 이벤트를 수신하는 구조를 상세히 설명합니다.
+
 ### 2. Command (커맨드)
 - **명령형**: CreateOrder, ProcessPayment
 - **검증**: 비즈니스 규칙 위반 시 예외 발생
