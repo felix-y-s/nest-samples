@@ -10,6 +10,15 @@
   "monorepo": true,
   "root": "apps/nest-sample",
   "projects": {
+    "event-sourcing-sample": {
+      "type": "application",
+      "root": "apps/event-sourcing-sample",
+      "entryFile": "main",
+      "sourceRoot": "apps/event-sourcing-sample/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/event-sourcing-sample/tsconfig.app.json"
+      }
+    },
     "global-exception-filter": {
       "type": "application",
       "root": "apps/global-exception-filter",
