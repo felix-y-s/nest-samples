@@ -30,8 +30,8 @@
 └────────────┬────────────────────────────────────────────┘
              │
     ┌────────┴────────┐
-    │                 │
-    ▼                 ▼  `⭐️ OrderCreatedEvent 발생 시 전달 순서 1️⃣ -> 2️⃣ -> 3️⃣ -> 4️⃣ ⭐️`
+    │                 │  `⭐️ OrderCreatedEvent 발생 시 전달 순서 1️⃣ -> 2️⃣ -> 3️⃣ -> 4️⃣ ⭐️`
+    ▼                 ▼                               (apply → onEvent → commit → EventBus)
 ┌─────────┐     ┌──────────┐
 │ Command │     │  Query   │  - await this.commandBus.execute(new CreateOrderCommand({}));
 │   Bus   │     │   Bus    │  - await this.queryBus.execute(new GetOrderStatusQuery());
