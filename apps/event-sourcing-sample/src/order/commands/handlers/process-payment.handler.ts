@@ -1,7 +1,6 @@
 import { CommandHandler, ICommandHandler, EventPublisher } from '@nestjs/cqrs';
-import { ProcessPaymentCommand } from '../commands';
-import { OrderAggregate } from '../aggregates/order.aggregate';
-import { EventStoreService } from '../services/event-store.service';
+import { EventStoreService } from '../../services/event-store.service';
+import { ProcessPaymentCommand } from '../process-payment.command';
 
 /**
  * 결제 처리 커맨드 핸들러

@@ -4,7 +4,7 @@ import { OrderController } from './order.controller';
 import { EventStoreService } from './services/event-store.service';
 
 // 커맨드 핸들러
-import { CreateOrderHandler, ProcessPaymentHandler } from './handlers';
+import { CreateOrderHandler, ProcessPaymentHandler } from './commands/handlers';
 
 // 쿼리 핸들러
 import {

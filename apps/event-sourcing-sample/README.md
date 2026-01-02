@@ -64,16 +64,18 @@ src/order/
 │   └── order-cancelled.event.ts
 ├── commands/              # 커맨드 정의 (명령형)
 │   ├── create-order.command.ts
-│   └── process-payment.command.ts
-├── aggregates/            # Aggregate Root
-│   └── order.aggregate.ts
-├── handlers/              # 커맨드 핸들러
-│   ├── create-order.handler.ts
-│   └── process-payment.handler.ts
-├── queries/               # 쿼리 및 핸들러
+│   ├── process-payment.command.ts
+│   └── handlers/          # 커맨드 핸들러
+│       ├── create-order.handler.ts
+│       └── process-payment.handler.ts
+├── queries/               # 쿼리 정의
 │   ├── get-order-status.query.ts
 │   ├── get-order-history.query.ts
-│   └── handlers/
+│   └── handlers/          # 쿼리 핸들러
+│       ├── get-order-status.handler.ts
+│       └── get-order-history.handler.ts
+├── aggregates/            # Aggregate Root
+│   └── order.aggregate.ts
 ├── services/              # 이벤트 스토어
 │   └── event-store.service.ts
 ├── order.controller.ts    # HTTP API
@@ -211,7 +213,7 @@ curl -X POST http://localhost:3000/orders \
     "quantity": 1,
     "price": 1000000,
     "discountRate": 10
-  }'
+  }' | jq
 # → orderId 복사
 
 # 2. 결제 처리 (충분한 잔액)

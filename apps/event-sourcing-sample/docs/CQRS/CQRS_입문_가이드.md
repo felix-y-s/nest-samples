@@ -132,7 +132,7 @@ src/
     ```typescript
     // create-order.handler.ts
     @CommandHandler(CreateOrderCommand)
-    export class CreateOrderHandler {
+    export class CreateOrderHandler implements ICommandHandler<CreateOrderCommand> {
       constructor(
         private readonly productService: ProductService, // 외부 데이터 조회
         private readonly eventPublisher: EventPublisher,
@@ -146,7 +146,7 @@ src/
 
         // ✅ Aggregate는 순수한 도메인 로직만 처리
         const order = this.eventPublisher.mergeObjectContext(new OrderAggregate());
-        order.create(product.id, product.name, product.price, quantity);
+        order.createOrder(product.id, product.name, product.price, quantity);
         order.commit(); // OrderCreatedEvent 발행
       }
     }

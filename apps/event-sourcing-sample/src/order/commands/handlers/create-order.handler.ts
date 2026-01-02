@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler, EventPublisher } from '@nestjs/cqrs';
-import { CreateOrderCommand } from '../commands';
-import { OrderAggregate } from '../aggregates/order.aggregate';
+import { CreateOrderCommand } from '../create-order.command';
+import { OrderAggregate } from '../../aggregates/order.aggregate';
 
 /**
  * 주문 생성 커맨드 핸들러
