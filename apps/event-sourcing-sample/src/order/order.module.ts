@@ -1,36 +1,42 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { OrderController } from './order.controller';
-import { EventStoreService } from './services/event-store.service';
+import { OrderRepository } from './repositories/order.repository';
+import { HighValueOrderRepository } from './repositories/high-value-order.repository';
 
 // 커맨드 핸들러
 import { CreateOrderHandler, ProcessPaymentHandler } from './commands/handlers';
+import { OrderCreatedHandler } from './events/handlers/order-created.handler';
 
 // 쿼리 핸들러
 import {
   GetOrderStatusHandler,
   GetOrderHistoryHandler,
+  GetHighValueOrderHandler,
 } from './queries/handlers';
 
-/**
- * 주문 모듈
- * - 이벤트 소싱 패턴을 적용한 주문 관리 모듈
- */
+// ... (imports)
+
 @Module({
   imports: [CqrsModule],
   controllers: [OrderController],
   providers: [
-    // 서비스
-    EventStoreService,
+    // 리포지토리
+    OrderRepository,
+    HighValueOrderRepository,
 
     // 커맨드 핸들러
     CreateOrderHandler,
     ProcessPaymentHandler,
 
+    // 이벤트 핸들러
+    OrderCreatedHandler,
+
     // 쿼리 핸들러
     GetOrderStatusHandler,
     GetOrderHistoryHandler,
+    GetHighValueOrderHandler,
   ],
-  exports: [EventStoreService],
+  exports: [OrderRepository],
 })
 export class OrderModule {}

@@ -15,7 +15,7 @@ export class ProductStockHandler implements IEventHandler<OrderCompletedEvent> {
     console.log('[ProductStockHandler] 주문 완료 이벤트 수신:', {
       orderId: event.orderId,
       userId: event.userId,
-      amount: event.amount,
+      amount: event.totalAmount,
       completedAt: event.completedAt,
     });
 

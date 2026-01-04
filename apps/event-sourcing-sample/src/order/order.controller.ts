@@ -1,7 +1,19 @@
-import { Controller, Post, Get, Body, Param, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CreateOrderCommand, ProcessPaymentCommand } from './commands';
-import { GetOrderStatusQuery, GetOrderHistoryQuery } from './queries';
+import {
+  GetOrderStatusQuery,
+  GetOrderHistoryQuery,
+  GetHighValueOrderQuery,
+} from './queries';
 import { GetOrderStatusHandler } from './queries/handlers';
 
 /**
@@ -153,5 +165,14 @@ export class OrderController {
       success: true,
       data: result,
     };
+  }
+
+  /**
+   * 최고 주문 금액 조회
+   * GET /orders/highest-value
+   */
+  @Get('highest-value')
+  async getHighestValueOrder() {
+    return this.queryBus.execute(new GetHighValueOrderQuery());
   }
 }

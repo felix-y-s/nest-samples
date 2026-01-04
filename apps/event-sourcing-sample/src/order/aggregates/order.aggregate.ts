@@ -66,7 +66,15 @@ export class OrderAggregate extends AggregateRoot {
       throw new Error('할인율은 0-100 사이여야 합니다');
     }
 
-    // 여기서 실제 비지니스 로직을 실행하는거야? 예를들어 주문을 생성해서 디비에 저장하는 등의 일을 진행해?
+    /**
+     * 여기서는 비지니스 로직 검증 + 이벤트 발행 만
+     * 🖍️ 절대하면 안되는것(외부 시스템 연동)
+     * - DB 직접 저장
+     * - 이메일 전송
+     * - 재고 차감
+     * - 결제 처리
+     * ☝️ 외부 시스템 연동은 EventHandler에서 처리
+     */
 
     // 이벤트 발행 - 상태 변경은 이벤트 핸들러에서 처리
     this.apply(
@@ -84,15 +92,13 @@ export class OrderAggregate extends AggregateRoot {
   }
 
   /**
-   * 결제 처리
+   * 결제 시작 (외부 요청 전)
    */
-  processPayment(userBalance: number) {
-    // 주문이 생성된 상태인지 확인
+  initiatePayment() {
     if (this.status !== OrderStatus.CREATED) {
       throw new Error('주문 생성 상태에서만 결제를 시도할 수 있습니다');
     }
 
-    // 결제 시도 이벤트 발행
     this.apply(
       new PaymentAttemptedEvent(
         this.orderId,
@@ -101,47 +107,18 @@ export class OrderAggregate extends AggregateRoot {
         new Date(),
       ),
     );
+  }
 
-    // 할인율 검증 (최대 50%까지만 허용한다고 가정)
-    const MAX_DISCOUNT_RATE = 50;
-    if (this.discountRate > MAX_DISCOUNT_RATE) {
-      this.apply(
-        new PaymentFailedEvent(
-          this.orderId,
-          this.userId,
-          this.finalAmount,
-          PaymentFailureReason.INVALID_DISCOUNT_RATE,
-          `할인율이 최대 허용치(${MAX_DISCOUNT_RATE}%)를 초과했습니다`,
-          new Date(),
-          {
-            requestedDiscountRate: this.discountRate,
-            maxAllowedDiscountRate: MAX_DISCOUNT_RATE,
-          },
-        ),
-      );
-      return;
+  /**
+   * 결제 성공 처리 (외부 응답 수신)
+   */
+  completePayment(transactionId: string) {
+    if (this.status !== OrderStatus.PAYMENT_PENDING) {
+      // 이미 완료되었거나 취소된 경우 등에 대한 처리가 필요할 수 있음
+      // 여기서는 PENDING 상태에서만 성공 처리가 가능하다고 가정
+      // (멱등성을 위해 이미성공이면 무시하는 로직도 고려 가능)
     }
 
-    // 잔액 검증
-    if (userBalance < this.finalAmount) {
-      this.apply(
-        new PaymentFailedEvent(
-          this.orderId,
-          this.userId,
-          this.finalAmount,
-          PaymentFailureReason.INSUFFICIENT_BALANCE,
-          `잔액이 부족합니다. 필요 금액: ${this.finalAmount}, 현재 잔액: ${userBalance}`,
-          new Date(),
-          {
-            currentBalance: userBalance,
-          },
-        ),
-      );
-      return;
-    }
-
-    // 결제 성공
-    const transactionId = `TXN-${Date.now()}-${this.orderId}`;
     this.apply(
       new PaymentSucceededEvent(
         this.orderId,
@@ -152,13 +129,29 @@ export class OrderAggregate extends AggregateRoot {
       ),
     );
 
-    // 주문 완료
     this.apply(
       new OrderCompletedEvent(
         this.orderId,
         this.userId,
         this.finalAmount,
         new Date(),
+      ),
+    );
+  }
+
+  /**
+   * 결제 실패 처리 (외부 응답 수신)
+   */
+  failPayment(reason: string) {
+    this.apply(
+      new PaymentFailedEvent(
+        this.orderId,
+        this.userId,
+        this.finalAmount,
+        PaymentFailureReason.PAYMENT_GATEWAY_ERROR, // 외부 결제 오류
+        reason,
+        new Date(),
+        {},
       ),
     );
   }

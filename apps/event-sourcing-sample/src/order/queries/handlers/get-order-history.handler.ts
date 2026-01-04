@@ -1,6 +1,6 @@
 import { IQueryHandler, QueryHandler, IEvent } from '@nestjs/cqrs';
 import { GetOrderHistoryQuery } from '../get-order-history.query';
-import { EventStoreService } from '../../services/event-store.service';
+import { EventStoreService } from '../../../shared/event-store/event-store.service';
 
 /**
  * 주문 히스토리 조회 결과 DTO
@@ -33,7 +33,7 @@ export class GetOrderHistoryHandler
     const { orderId } = query;
 
     // 이벤트 스토어에서 모든 이벤트 조회
-    const events = this.eventStore.getEventsByOrderId(orderId);
+    const events = this.eventStore.getEvents(orderId);
 
     if (events.length === 0) {
       return null;
