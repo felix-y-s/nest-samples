@@ -2,7 +2,15 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "declaration": false,
-    "outDir": "../../dist/apps/event-sourcing-sample"
+    "outDir": "../../dist/apps/event-sourcing-sample",
+    "baseUrl": ".",
+    "paths": {
+      "@order/*": ["src/order/*"],
+      "@payment/*": ["src/payment/*"],
+      "@product/*": ["src/product/*"],
+      "@shared/*": ["src/shared/*"],
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]

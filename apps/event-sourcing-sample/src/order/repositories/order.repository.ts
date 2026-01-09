@@ -1,15 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { EventStoreService } from '../../shared/event-store/event-store.service';
-import { OrderAggregate } from '../aggregates/order.aggregate';
+import { EventStoreService } from '@shared/event-store/event-store.service';
+import { OrderAggregate } from '@order/aggregates/order.aggregate';
 import { IEvent } from '@nestjs/cqrs';
 import {
   OrderCreatedEvent,
-  PaymentAttemptedEvent,
-  PaymentFailedEvent,
-  PaymentSucceededEvent,
   OrderCompletedEvent,
   OrderCancelledEvent,
-} from '../events';
+} from '@order/events';
 
 @Injectable()
 export class OrderRepository {
@@ -42,12 +39,6 @@ export class OrderRepository {
   private applyEventToAggregate(order: OrderAggregate, event: IEvent) {
     if (event instanceof OrderCreatedEvent) {
       order.onOrderCreatedEvent(event);
-    } else if (event instanceof PaymentAttemptedEvent) {
-      order.onPaymentAttemptedEvent(event);
-    } else if (event instanceof PaymentFailedEvent) {
-      order.onPaymentFailedEvent(event);
-    } else if (event instanceof PaymentSucceededEvent) {
-      order.onPaymentSucceededEvent(event);
     } else if (event instanceof OrderCompletedEvent) {
       order.onOrderCompletedEvent(event);
     } else if (event instanceof OrderCancelledEvent) {

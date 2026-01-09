@@ -1,10 +1,6 @@
 import { AggregateRoot } from '@nestjs/cqrs';
 import {
   OrderCreatedEvent,
-  PaymentAttemptedEvent,
-  PaymentFailedEvent,
-  PaymentFailureReason,
-  PaymentSucceededEvent,
   OrderCompletedEvent,
   OrderCancelledEvent,
 } from '../events';
@@ -30,13 +26,15 @@ export class OrderAggregate extends AggregateRoot {
   private orderId: string;
   private userId: string;
   private productId: string;
-  private productName: string;
-  private quantity: number;
-  private price: number;
+  private paymentId: string;
   private discountRate: number;
   private status: OrderStatus;
-  private totalAmount: number;
-  private finalAmount: number;
+  private totalAmount: number; // 할인 적용 전, 주문의 원래 금액
+  private discountAmount: number; // 할인 금액
+  private finalAmount: number; // 실제로 결제해야 하는 최종 금액
+  private completedAt: Date;
+  private cancelledAt: Date;
+  private cancelledReason: string;
 
   constructor(orderId: string) {
     super();
@@ -76,7 +74,12 @@ export class OrderAggregate extends AggregateRoot {
      * ☝️ 외부 시스템 연동은 EventHandler에서 처리
      */
 
-    // 이벤트 발행 - 상태 변경은 이벤트 핸들러에서 처리
+    // ✅ 계산 로직은 여기서 수행 (이벤트 발행 전)
+    const totalAmount = price * quantity;
+    const discountAmount = totalAmount * (discountRate / 100);
+    const finalAmount = totalAmount - discountAmount;
+
+    // ✅ 계산된 값을 이벤트에 전달
     this.apply(
       new OrderCreatedEvent(
         this.orderId,
@@ -86,48 +89,21 @@ export class OrderAggregate extends AggregateRoot {
         quantity,
         price,
         discountRate,
+        totalAmount, // 계산된 값
+        discountAmount, // 계산된 값
+        finalAmount, // 계산된 값
         new Date(),
       ),
     );
   }
 
   /**
-   * 결제 시작 (외부 요청 전)
+   * 주문 완료
    */
-  initiatePayment() {
+  completeOrder() {
     if (this.status !== OrderStatus.CREATED) {
-      throw new Error('주문 생성 상태에서만 결제를 시도할 수 있습니다');
+      throw new Error('주문 완료는 CREATED 상태에서만 가능합니다');
     }
-
-    this.apply(
-      new PaymentAttemptedEvent(
-        this.orderId,
-        this.userId,
-        this.finalAmount,
-        new Date(),
-      ),
-    );
-  }
-
-  /**
-   * 결제 성공 처리 (외부 응답 수신)
-   */
-  completePayment(transactionId: string) {
-    if (this.status !== OrderStatus.PAYMENT_PENDING) {
-      // 이미 완료되었거나 취소된 경우 등에 대한 처리가 필요할 수 있음
-      // 여기서는 PENDING 상태에서만 성공 처리가 가능하다고 가정
-      // (멱등성을 위해 이미성공이면 무시하는 로직도 고려 가능)
-    }
-
-    this.apply(
-      new PaymentSucceededEvent(
-        this.orderId,
-        this.userId,
-        this.finalAmount,
-        transactionId,
-        new Date(),
-      ),
-    );
 
     this.apply(
       new OrderCompletedEvent(
@@ -135,23 +111,6 @@ export class OrderAggregate extends AggregateRoot {
         this.userId,
         this.finalAmount,
         new Date(),
-      ),
-    );
-  }
-
-  /**
-   * 결제 실패 처리 (외부 응답 수신)
-   */
-  failPayment(reason: string) {
-    this.apply(
-      new PaymentFailedEvent(
-        this.orderId,
-        this.userId,
-        this.finalAmount,
-        PaymentFailureReason.PAYMENT_GATEWAY_ERROR, // 외부 결제 오류
-        reason,
-        new Date(),
-        {},
       ),
     );
   }
@@ -174,39 +133,16 @@ export class OrderAggregate extends AggregateRoot {
   /**
    * 주문 생성 이벤트 처리
    * - 실제 상태 변경은 여기서 발생
+   * - ✅ 이벤트에 저장된 계산된 값을 그대로 사용
    */
   onOrderCreatedEvent(event: OrderCreatedEvent) {
-    this.orderId = event.orderId;
     this.userId = event.userId;
     this.productId = event.productId;
-    this.productName = event.productName;
-    this.quantity = event.quantity;
-    this.price = event.price;
     this.discountRate = event.discountRate;
-    this.totalAmount = event.totalAmount;
-    this.finalAmount = event.finalAmount;
+    this.totalAmount = event.totalAmount; // ✅ 계산된 값
+    this.discountAmount = event.discountAmount; // ✅ 계산된 값
+    this.finalAmount = event.finalAmount; // ✅ 계산된 값
     this.status = OrderStatus.CREATED;
-  }
-
-  /**
-   * 결제 시도 이벤트 처리
-   */
-  onPaymentAttemptedEvent(event: PaymentAttemptedEvent) {
-    this.status = OrderStatus.PAYMENT_PENDING;
-  }
-
-  /**
-   * 결제 실패 이벤트 처리
-   */
-  onPaymentFailedEvent(event: PaymentFailedEvent) {
-    this.status = OrderStatus.PAYMENT_FAILED;
-  }
-
-  /**
-   * 결제 성공 이벤트 처리
-   */
-  onPaymentSucceededEvent(event: PaymentSucceededEvent) {
-    this.status = OrderStatus.PAYMENT_SUCCEEDED;
   }
 
   /**
@@ -214,6 +150,7 @@ export class OrderAggregate extends AggregateRoot {
    */
   onOrderCompletedEvent(event: OrderCompletedEvent) {
     this.status = OrderStatus.COMPLETED;
+    this.completedAt = event.completedAt;
   }
 
   /**
@@ -221,6 +158,8 @@ export class OrderAggregate extends AggregateRoot {
    */
   onOrderCancelledEvent(event: OrderCancelledEvent) {
     this.status = OrderStatus.CANCELLED;
+    this.cancelledReason = event.reason;
+    this.cancelledAt = event.cancelledAt;
   }
 
   // ========== Getter 메서드 ==========

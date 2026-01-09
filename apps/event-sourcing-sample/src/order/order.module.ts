@@ -5,7 +5,7 @@ import { OrderRepository } from './repositories/order.repository';
 import { HighValueOrderRepository } from './repositories/high-value-order.repository';
 
 // 커맨드 핸들러
-import { CreateOrderHandler, ProcessPaymentHandler } from './commands/handlers';
+import { CreateOrderHandler } from './commands/handlers';
 import { OrderCreatedHandler } from './events/handlers/order-created.handler';
 
 // 쿼리 핸들러
@@ -14,8 +14,6 @@ import {
   GetOrderHistoryHandler,
   GetHighValueOrderHandler,
 } from './queries/handlers';
-
-// ... (imports)
 
 @Module({
   imports: [CqrsModule],
@@ -27,7 +25,6 @@ import {
 
     // 커맨드 핸들러
     CreateOrderHandler,
-    ProcessPaymentHandler,
 
     // 이벤트 핸들러
     OrderCreatedHandler,

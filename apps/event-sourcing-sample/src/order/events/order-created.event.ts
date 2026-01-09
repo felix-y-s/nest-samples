@@ -1,8 +1,11 @@
+import { BaseEvent } from '@/types/domain.event.types';
+
 /**
  * 주문 생성 이벤트
  * - 사용자가 주문을 생성했을 때 발생
  */
-export class OrderCreatedEvent {
+export class OrderCreatedEvent implements BaseEvent {
+  public readonly aggregateId: string;
   constructor(
     public readonly orderId: string,
     public readonly userId: string,
@@ -11,21 +14,13 @@ export class OrderCreatedEvent {
     public readonly quantity: number,
     public readonly price: number,
     public readonly discountRate: number, // 할인율 (0-100)
+    public readonly totalAmount: number, // ✅ 계산된 값 저장 (할인 적용 전)
+    public readonly discountAmount: number, // ✅ 계산된 값 저장
+    public readonly finalAmount: number, // ✅ 계산된 값 저장 (할인 적용 후)
     public readonly createdAt: Date,
-  ) {}
-
-  // 총 주문 금액 계산 (할인 적용 전)
-  get totalAmount(): number {
-    return this.price * this.quantity;
+  ) {
+    this.aggregateId = orderId;
   }
 
-  // 할인 금액 계산
-  get discountAmount(): number {
-    return this.totalAmount * (this.discountRate / 100);
-  }
-
-  // 최종 결제 금액 (할인 적용 후)
-  get finalAmount(): number {
-    return this.totalAmount - this.discountAmount;
-  }
+  // ✅ getter 함수 제거 - 계산 로직 없음, 저장된 값만 사용
 }
