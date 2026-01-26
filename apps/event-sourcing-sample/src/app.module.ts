@@ -3,9 +3,11 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { OrderModule } from './order/order.module';
 import { EventStoreModule } from './shared/event-store/event-store.module';
 import { PaymentModule } from './payment/payment.module';
+import { MockModule } from './mocks/mock.module';
 
 @Module({
   imports: [
+    MockModule, // Test용 모킹 모듈
     CqrsModule, // CQRS 및 이벤트 소싱을 위한 모듈
     EventStoreModule, // 중앙 집중형 이벤트 스토어
     OrderModule,

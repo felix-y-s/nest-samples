@@ -45,4 +45,13 @@ export class OrderRepository {
       order.onOrderCancelledEvent(event);
     }
   }
+
+  async save(order: OrderAggregate): Promise<void> {
+    const events = order.getUncommittedEvents();
+    if (events.length === 0) return;
+
+    await this.eventStore.saveEvents(events, order.getOrderId());
+
+    order.commit();
+  }
 }

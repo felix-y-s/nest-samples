@@ -1,16 +1,18 @@
 import { CommandHandler, ICommandHandler, EventPublisher } from '@nestjs/cqrs';
 import { CreateOrderCommand } from '../create-order.command';
 import { OrderAggregate } from '../../aggregates/order.aggregate';
+import { OrderRepository } from '@order/repositories/order.repository';
 
 /**
  * 주문 생성 커맨드 핸들러
  * - CreateOrderCommand를 받아서 처리
  */
 @CommandHandler(CreateOrderCommand)
-export class CreateOrderHandler
-  implements ICommandHandler<CreateOrderCommand>
-{
-  constructor(private readonly eventPublisher: EventPublisher) {}
+export class CreateOrderHandler implements ICommandHandler<CreateOrderCommand> {
+  constructor(
+    private readonly eventPublisher: EventPublisher,
+    private readonly orderRepository: OrderRepository,
+  ) {}
 
   async execute(command: CreateOrderCommand): Promise<void> {
     const {
@@ -29,9 +31,17 @@ export class CreateOrderHandler
     );
 
     // 2. 비즈니스 로직 실행 (이벤트 발행)
-    order.createOrder(userId, productId, productName, quantity, price, discountRate);
+    order.createOrder(
+      userId,
+      productId,
+      productName,
+      quantity,
+      price,
+      discountRate,
+    );
 
     // 3. 이벤트 커밋 (실제 이벤트 발행)
-    order.commit();
+    // order.commit();
+    this.orderRepository.save(order);
   }
 }

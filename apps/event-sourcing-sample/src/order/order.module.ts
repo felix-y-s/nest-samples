@@ -14,9 +14,13 @@ import {
   GetOrderHistoryHandler,
   GetHighValueOrderHandler,
 } from './queries/handlers';
+import { MockModule } from '@/mocks/mock.module';
+import { OrderCompletedHandler } from './events/handlers/order-completed.handler';
+import { OrderCancelledHandler } from './events/handlers/order-cancelled.handler';
+import { PaymentModule } from '@payment/payment.module';
 
 @Module({
-  imports: [CqrsModule],
+  imports: [CqrsModule, MockModule, PaymentModule],
   controllers: [OrderController],
   providers: [
     // 리포지토리
@@ -28,6 +32,8 @@ import {
 
     // 이벤트 핸들러
     OrderCreatedHandler,
+    OrderCompletedHandler,
+    OrderCancelledHandler,
 
     // 쿼리 핸들러
     GetOrderStatusHandler,

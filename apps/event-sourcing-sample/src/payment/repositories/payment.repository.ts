@@ -12,9 +12,7 @@ export interface PaymentReadModel {
 
 @Injectable()
 export class PaymentRepository {
-  constructor(
-    private readonly eventStore: EventStoreService,
-  ) {}
+  constructor(private readonly eventStore: EventStoreService) {}
 
   /**
    * ID로 주문 Aggregate 조회 및 복원
@@ -49,5 +47,19 @@ export class PaymentRepository {
     } else if (event instanceof PaymentFailedEvent) {
       payment.onPaymentFailedEvent(event);
     }
+  }
+
+  /**
+   * save
+   */
+  async save(payment: PaymentAggregate): Promise<void> {
+    const events = payment.getUncommittedEvents();
+    if (events.length === 0) return;
+
+    // 1. DB에 먼저 저장 (Explicit)
+    this.eventStore.saveEvents(events, payment.getId());
+
+    // 2. 이벤트 발행 (메모리)
+    payment.commit();
   }
 }

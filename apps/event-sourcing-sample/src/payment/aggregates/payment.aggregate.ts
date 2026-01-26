@@ -34,11 +34,29 @@ export class PaymentAggregate extends AggregateRoot {
     paymentId: string,
     orderId: string,
     userId: string,
+    currentBalance: number,
     amount: number,
     priceSnapshot: PriceSnapshot,
   ) {
     if (this.status !== PaymentStatus.PENDING) {
       throw new Error('결제는 PENDING 상태에서만 시작할 수 있습니다');
+    }
+
+    // 잔액 부족 검증
+    if (currentBalance < amount) {
+      this.apply(
+        new PaymentFailedEvent(
+          paymentId,
+          orderId,
+          userId,
+          amount,
+          PaymentFailureReason.INSUFFICIENT_BALANCE,
+          '잔액 부족',
+          new Date(),
+          { currentBalance },
+        ),
+      );
+      return;
     }
 
     this.apply(
@@ -71,7 +89,7 @@ export class PaymentAggregate extends AggregateRoot {
   }
 
   /**
-   * 결재 게이트트웨이로 부터 성공 응답 수신
+   * 결재 게이트웨이로 부터 성공 응답 수신
    */
   completePayment(transactionId: string) {
     if (this.status !== PaymentStatus.PROCESSING) {
@@ -98,8 +116,6 @@ export class PaymentAggregate extends AggregateRoot {
     errorMessage?: string,
     additionlInfo?: {
       currentBalance?: number; // 잔액 부족 시 현재 잔액
-      requestedDiscountRate?: number; // 할인율 문제시 요청한 할인율
-      maxAllowedDiscountRate?: number; // 할인율 문제 시 최대 허용 할인율
     },
   ) {
     this.apply(
@@ -139,5 +155,9 @@ export class PaymentAggregate extends AggregateRoot {
     this.status = PaymentStatus.FAILED;
     this.reason = event.reason;
     this.failedAt = event.failedAt;
+  }
+
+  getId() {
+    return this.paymentId;
   }
 }
